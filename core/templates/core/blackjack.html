@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blackjack</title>
+  <style>
+    * { box-sizing: border-box; }
+    html { height: 100%; }
+    body {
+      margin: 0;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      font-family: sans-serif;
+      color: white;
+      text-align: center;
+      background: radial-gradient(ellipse at center, #1a7a3c 0%, #0e5427 60%, #07381a 100%);
+      position: relative;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    /* Arco dorado inferior de la mesa */
+    body::after {
+      content: "";
+      position: fixed;
+      left: 50%;
+      bottom: -48vh;
+      width: 150vw;
+      height: 60vh;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      border-top: 8px solid #c9a227;
+      background: #141414;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .barra {
+      position: relative;
+      z-index: 2;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      padding: .5rem 1.5rem;
+      background: #0d0d0d;
+      border-bottom: 1px solid #b8923a;
+    }
+    .logo {
+      color: #d4af37;
+      font-family: Georgia, serif;
+      font-size: 1.7rem;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    /* Mazo decorativo arriba a la derecha */
+    .mazo {
+      position: absolute;
+      top: 4.8rem;
+      right: 3rem;
+      width: 72px;
+      height: 100px;
+      border-radius: 8px;
+      border: 4px solid #fff;
+      background: repeating-linear-gradient(45deg, #1f3c88 0 6px, #2d55b8 6px 12px);
+      box-shadow: 4px 4px 0 -1px #e8e8e8, 8px 8px 0 -2px #cfcfcf, 0 8px 18px rgba(0,0,0,.5);
+      transform: rotate(8deg);
+      z-index: 1;
+    }
+
+    /* Saldo + historial, a la derecha de las cartas */
+    .saldo-zona {
+      position: absolute;
+      top: 38vh;
+      right: 3rem;
+      text-align: center;
+      z-index: 1;
+    }
+    .saldo {
+      display: inline-block;
+      border: 1px solid #b8923a;
+      border-radius: 999px;
+      padding: .5rem 1.6rem;
+      background: #151515;
+      font-size: 1.7rem;
+    }
+    .saldo strong { color: #d4af37; }
+    .historial { margin-top: .6rem; font-weight: bold; font-size: 1.1rem; }
+    .historial .gana { color: #3ddc57; }
+    .historial .pierde { color: #ff4d4d; }
+    .historial .empate { color: #dddddd; }
+    .historial .antigua { font-size: .9rem; }
+    .historial .gana.antigua { color: #2f8a46; }
+    .historial .pierde.antigua { color: #9b2335; }
+    .historial .empate.antigua { color: #9a9a9a; }
+
+    @media (max-width: 1200px) {
+      .saldo-zona { position: static; margin: .6rem auto 0; z-index: 1; }
+      .mazo { display: none; }
+    }
+
+    /* La mesa ocupa el alto que queda y reparte el espacio */
+    .mesa {
+      position: relative;
+      z-index: 1;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-evenly;
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: .3rem 1rem .8rem;
+    }
+
+    .etiqueta {
+      display: inline-block;
+      background: rgba(0,0,0,.5);
+      border-radius: 10px;
+      padding: .2rem 1.2rem;
+      margin-bottom: .4rem;
+      font-weight: bold;
+      font-size: 1.15rem;
+    }
+    .etiqueta span { color: #ffd800; }
+
+    /* Cartas de póker: su tamaño depende de la altura de la ventana */
+    .cartas { display: flex; justify-content: center; gap: .6rem; flex-wrap: wrap; }
+    .carta {
+      --h: clamp(84px, 16vh, 124px);
+      position: relative;
+      height: var(--h);
+      width: calc(var(--h) * .71);
+      background: #fff;
+      color: #111;
+      border-radius: 8px;
+      box-shadow: 0 3px 8px rgba(0,0,0,.55);
+      font-family: Georgia, serif;
+      font-size: calc(var(--h) * .17);
+    }
+    .carta.rojo { color: #c8102e; }
+    .carta .esq {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1;
+      font-weight: bold;
+    }
+    .carta .arriba { top: 6px; left: 7px; }
+    .carta .abajo { bottom: 6px; right: 7px; transform: rotate(180deg); }
+    .carta .centro {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5em;
+    }
+
+    /* Cartel curvo de la mesa */
+    .banner {
+      width: min(540px, 92%);
+      height: auto;
+      max-height: 17vh;
+      flex: 0 1 auto;
+      min-height: 0;
+    }
+    .banner text { font-family: Georgia, serif; font-weight: bold; }
+
+    .controles { display: flex; flex-direction: column; align-items: center; gap: .3rem; }
+    .apuesta-box {
+      display: inline-block;
+      padding: .3rem 1.4rem;
+      border: 1px solid #b8923a;
+      border-radius: 14px;
+      background: rgba(0,0,0,.6);
+      font-size: 1.05rem;
+    }
+    .apuesta-box .dinero { font-size: 1.35rem; font-weight: bold; }
+    .apuesta-box .amarillo { color: #ffc400; }
+    .apuesta-box .verde { color: #3ddc57; }
+    .apuesta-box .sep { margin: 0 .8rem; color: #b8923a; }
+
+    .fila { display: flex; align-items: center; justify-content: center; gap: .8rem; flex-wrap: wrap; }
+    .mensaje { font-size: 1.5rem; color: #ffd800; font-weight: bold; }
+
+    form { display: inline; }
+    button {
+      font-size: 1.05rem;
+      padding: .6rem 1.8rem;
+      margin: .2rem;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      color: white;
+      font-weight: bold;
+    }
+    .pedir {
+      background: linear-gradient(#22b04b, #12802f);
+      box-shadow: 0 0 0 2px #53d276 inset;
+    }
+    .plantarse {
+      background: linear-gradient(#dc1f26, #a30e14);
+      box-shadow: 0 0 0 2px #f0646a inset;
+    }
+    .nueva { background: #f2f2f2; color: #111; }
+
+    .panel-apuesta {
+      display: inline-block;
+      padding: .8rem 1.2rem 1rem;
+      border: 1px solid #b8923a;
+      border-radius: 16px;
+      background: rgba(10, 40, 20, .85);
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    .ficha {
+      background: linear-gradient(#5a3a10, #35210a);
+      color: #ffd37a;
+      border: 2px solid #d4af37;
+      min-width: 88px;
+      font-size: 1.3rem;
+    }
+    .ficha:disabled { opacity: .35; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="barra">
+    <div class="logo">♠ BLACKJACK</div>
+  </div>
+
+  <div class="mazo"></div>
+
+  <div class="saldo-zona">
+    <div class="saldo">Saldo: <strong>${{ saldo }}</strong></div>
+    <div class="historial">
+      {% for h in historial %}
+        {% if h.tipo == 'gana' %}
+          <div class="gana{% if not forloop.first %} antigua{% endif %}">Has ganado ${{ h.cantidad }}</div>
+        {% elif h.tipo == 'pierde' %}
+          <div class="pierde{% if not forloop.first %} antigua{% endif %}">Has perdido ${{ h.cantidad }}</div>
+        {% else %}
+          <div class="empate{% if not forloop.first %} antigua{% endif %}">Empate (recuperas ${{ h.cantidad }})</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="mesa">
+
+    {% if not apostando %}
+      <div>
+        <div class="etiqueta">Dealer: <span>{{ suma_dealer }}</span></div>
+        <div class="cartas">
+          {% for c in dealer %}
+            <div class="carta {% if c.palo == '♥' or c.palo == '♦' %}rojo{% endif %}">
+              <div class="esq arriba"><span>{{ c.rango }}</span><span>{{ c.palo }}</span></div>
+              <div class="centro">{{ c.palo }}</div>
+              <div class="esq abajo"><span>{{ c.rango }}</span><span>{{ c.palo }}</span></div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Cartel curvo de la mesa -->
+    <svg class="banner" viewBox="0 0 800 175" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <path id="arco1" d="M 150 85 Q 400 15 650 85" fill="none"/>
+        <path id="arco2" d="M 270 120 Q 400 98 530 120" fill="none"/>
+        <path id="arco3" d="M 80 160 Q 400 120 720 160" fill="none"/>
+      </defs>
+      <text font-size="50" fill="#d4af37" letter-spacing="3">
+        <textPath href="#arco1" startOffset="50%" text-anchor="middle">BLACKJACK</textPath>
+      </text>
+      <text font-size="28" fill="#d4af37" letter-spacing="4">
+        <textPath href="#arco2" startOffset="50%" text-anchor="middle">PAGA X2</textPath>
+      </text>
+      <text font-size="15" fill="#cbb26a" letter-spacing="1">
+        <textPath href="#arco3" startOffset="50%" text-anchor="middle">EL CRUPIER DEBE PLANTARSE EN 17 Y PEDIR CARTA EN 16</textPath>
+      </text>
+    </svg>
+
+    {% if not apostando %}
+      <div>
+        <div class="etiqueta">Tus cartas: <span>{{ suma_jugador }}</span></div>
+        <div class="cartas">
+          {% for c in jugador %}
+            <div class="carta {% if c.palo == '♥' or c.palo == '♦' %}rojo{% endif %}">
+              <div class="esq arriba"><span>{{ c.rango }}</span><span>{{ c.palo }}</span></div>
+              <div class="centro">{{ c.palo }}</div>
+              <div class="esq abajo"><span>{{ c.rango }}</span><span>{{ c.palo }}</span></div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="controles">
+        <div class="apuesta-box">
+          Has apostado: <span class="dinero amarillo">${{ apuesta }}</span> x2
+          <span class="sep">|</span>
+          Puedes ganar: <span class="dinero verde">${{ posible_ganancia }}</span>
+        </div>
+
+        {% if terminada %}
+          <div class="fila">
+            <div class="mensaje">{{ mensaje }}</div>
+            <form method="post" action="{% url 'nueva' %}">
+              {% csrf_token %}
+              <button class="nueva">Nueva partida</button>
+            </form>
+          </div>
+        {% else %}
+          <div class="fila">
+            <form method="post" action="{% url 'pedir' %}">
+              {% csrf_token %}
+              <button class="pedir">Pedir Carta</button>
+            </form>
+            <form method="post" action="{% url 'plantarse' %}">
+              {% csrf_token %}
+              <button class="plantarse">Plantarse</button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+
+    {% else %}
+
+      <div class="panel-apuesta">
+        <div>¿Cuánto quieres apostar?</div>
+        {% for cantidad in apuestas %}
+          <form method="post" action="{% url 'apostar' %}">
+            {% csrf_token %}
+            <input type="hidden" name="cantidad" value="{{ cantidad }}">
+            <button class="ficha" {% if cantidad > saldo %}disabled{% endif %}>${{ cantidad }}</button>
+          </form>
+        {% endfor %}
+      </div>
+
+    {% endif %}
+
+  </div>
+</body>
+</html>
